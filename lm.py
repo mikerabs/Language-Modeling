@@ -10,7 +10,7 @@ from nltk.util import bigrams
 from nltk.tokenize import TreebankWordTokenizer
 
 kLM_ORDER = 2
-kUNK_CUTOFF = 3
+kUNK_CUTOFF = 3#3
 kNEG_INF = -1e6
 
 kSTART = "<s>"
@@ -20,7 +20,6 @@ def lg(x):
     return log(x) / log(2.0)
 
 class BigramLanguageModel:
-
     def __init__(self, unk_cutoff, jm_lambda=0.6, add_k=0.1,
                  katz_cutoff=5, kn_discount=0.1, kn_concentration=1.0,
                  tokenize_function=TreebankWordTokenizer().tokenize,
@@ -37,8 +36,10 @@ class BigramLanguageModel:
         self._normalizer = normalize_function
         
         # Add your code here!
+        self._countWords = {}#our dictionary for train_seen()
+        self._countWords2 = {}#dictionary for add_train()
 
-    def train_seen(self, word, count=1):
+    def train_seen(self, word, count=1):#count used to be = 1
         """
         Tells the language model that a word has been seen @count times.  This
         will be used to build the final vocabulary.
@@ -46,7 +47,13 @@ class BigramLanguageModel:
         assert not self._vocab_final, \
             "Trying to add new words to finalized vocab"
 
-        # Add your code here!            
+        # Add your code here!  
+        # Modify this function so that it will keep track of all of 
+        # the tokens in the training corpus and their counts. 
+
+        #use dictionary
+        self._countWords[word] = count
+
 
     def tokenize(self, sent):
         """
@@ -67,7 +74,12 @@ class BigramLanguageModel:
             "Vocab must be finalized before looking up words"
 
         # Add your code here
-        return -1
+
+        #check if the searched for word is in the dictionary first
+
+        if word in self._countWords and self._countWords[word] >= self._unk_cutoff:
+            return word
+        return "unknown"# the common unknown identifier that will be returned if word count does not meet threshold
 
     def finalize(self):
         """
@@ -109,16 +121,17 @@ class BigramLanguageModel:
 
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
-        return 0.0
+        logmle = lg(self._countWords2[word]/self._countWords2[context])
+        return logmle
 
     def laplace(self, context, word):
         """
         Return the log MLE estimate of a word given a context.
         """
-
+        loglapl = lg(self._countWords2[word]+1/self._countWords2[context]+1)
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
-        return 0.0
+        return loglapl
 
     def jelinek_mercer(self, context, word):
         """
@@ -152,11 +165,26 @@ class BigramLanguageModel:
         """
         Add the counts associated with a sentence.
         """
+        # Directions: Modify so that given a sentence it keeps track 
+        # of the necessary counts you’ll need for the probability functions later
 
         # You'll need to complete this function, but here's a line of
         # code that will hopefully get you started.
+        #for each bigram word pairing, (context, word), 
         for context, word in bigrams(self.tokenize_and_censor(sentence)):
-            print(context, word)
+            count = 0
+            # account for case where word that isn't part of vocabulary doesn't get 
+
+            #if the word is part of vocab and already in the countWords2 dictionary, either second instance case/another instance in next sentence
+            if word in self._countWords and word in self._countWords2:
+                count += self._countWords2[word] 
+
+            count +=1    
+            self._countWords2[word]= count
+            
+            if count > 1:#PROBLEM,NO WORDS GET OVER 1
+                print(word,count)
+            #print(context, word)
             None
 
     def perplexity(self, sentence, method):
@@ -215,14 +243,25 @@ if __name__ == "__main__":
                              add_k=args.add_k,
                              katz_cutoff=args.katz_cutoff,
                              kn_concentration=args.kn_concentration,
-                             kn_discount=args.kn_discount)
+                             kn_discount=args.kn_discount)#first argument was kUNK_CUTOFF
+
+
 
     for ii in nltk.corpus.brown.sents():
         for jj in lm.tokenize(" ".join(ii)):
             lm.train_seen(lm._normalizer(jj))
 
+    
+
     print("Done looking at all the words, finalizing vocabulary")
     lm.finalize()
+    
+    
+    
+    #sentence = "This is a brown sample sentence"
+  
+    #lm.add_train(sentence)
+
 
     sentence_count = 0
     for ii in nltk.corpus.brown.sents():
@@ -231,7 +270,7 @@ if __name__ == "__main__":
 
         if args.brown_limit > 0 and sentence_count >= args.brown_limit:
             break
-
+'''
     print("Trained language model with %i sentences from Brown corpus." % sentence_count)
     assert args.method in ['kneser_ney', 'mle', 'add_k', \
                            'jelinek_mercer', 'good_turing', 'laplace'], \
@@ -242,3 +281,4 @@ if __name__ == "__main__":
         print("#".join(str(x) for x in lm.tokenize_and_censor(sent)))
         print(lm.perplexity(sent, getattr(lm, args.method)))
         sent = input()
+'''
