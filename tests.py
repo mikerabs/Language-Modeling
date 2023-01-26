@@ -6,7 +6,7 @@ from lm import BigramLanguageModel, kLM_ORDER, \
 
 
 class TestSequenceFunctions(unittest.TestCase):
-
+    countWords = {}
     def setUp(self):
         self.lm = BigramLanguageModel(kUNK_CUTOFF, jm_lambda=0.6, \
                                       kn_discount = 0.1,
@@ -27,7 +27,7 @@ class TestSequenceFunctions(unittest.TestCase):
         # Infrequent words should look the same as never seen words
         self.assertEqual(self.lm.vocab_lookup("b"),
                          self.lm.vocab_lookup("d"),
-                         "")
+                         "unknown")
 
         # The frequent word should be different from the infrequent word
         self.assertNotEqual(self.lm.vocab_lookup("a"),
@@ -63,7 +63,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.lm.add_train("a a b")
 
-        # Test MLE
+        # Test MLEP
         word_start = self.lm.vocab_lookup(kSTART)
         word_end = self.lm.vocab_lookup(kEND)
         word_a = self.lm.vocab_lookup("a")
@@ -77,7 +77,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertAlmostEqual(self.lm.mle(word_a, word_c), lg(0.5))
 
         # Test Add one
-        self.assertAlmostEqual(self.lm.laplace(word_start, word_b),
+        self.assertAlmostEqual(self.lm.laplace(word_start, word_b),#error here
                                lg(1.0 / 5.0))
         self.assertAlmostEqual(self.lm.laplace(word_start, word_a),
                                lg(2.0 / 5.0))
