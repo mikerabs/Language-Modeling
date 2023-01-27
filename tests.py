@@ -77,7 +77,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertAlmostEqual(self.lm.mle(word_a, word_c), lg(0.5))
 
         # Test Add one
-        self.assertAlmostEqual(self.lm.laplace(word_start, word_b),#error here
+        self.assertAlmostEqual(self.lm.laplace(word_start, word_b),
                                lg(1.0 / 5.0))
         self.assertAlmostEqual(self.lm.laplace(word_start, word_a),
                                lg(2.0 / 5.0))
