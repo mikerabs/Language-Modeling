@@ -79,6 +79,8 @@ class BigramLanguageModel:
 
         if word in self._countWords and self._countWords[word] >= self._unk_cutoff:
             return word
+        elif word == kSTART or word == kEND:
+            return word
         return "unknown"# the common unknown identifier that will be returned if word count does not meet threshold
 
     def finalize(self):
@@ -119,16 +121,38 @@ class BigramLanguageModel:
         MLE would be negative infinity, use kNEG_INF
         """
 
+        #p(hope|I) = count(I hope)/count(hope) -> change add_train() to count the bigrams
+
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
-        logmle = lg(self._countWords2[word]/self._countWords2[context])
+
+        bigramPair = context + " " + word
+        
+        if bigramPair not in self._countWords2:
+            return kNEG_INF
+        
+        if self._countWords2[context] == 0:
+            return kNEG_INF
+        
+        
+
+        logmle = lg(self._countWords2[bigramPair]/self._countWords2[context])
+
         return logmle
 
     def laplace(self, context, word):
         """
         Return the log MLE estimate of a word given a context.
         """
-        loglapl = lg(self._countWords2[word]+1/self._countWords2[context]+1)
+
+        bigramPair = context + " " + word
+        
+        if bigramPair not in self._countWords2 and context not in self._countWords2:
+            return lg(0+1/0+len(self._countWords))
+        if bigramPair not in self._countWords2 and context  in self._countWords2:
+            return lg(0+1/self._countWords2[context]+len(self._countWords))
+            
+        loglapl = lg(self._countWords2[bigramPair]+1/self._countWords2[context]+len(self._countWords))#+k*vocab_size?
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
         return loglapl
@@ -139,6 +163,12 @@ class BigramLanguageModel:
         given a context; interpolates context probability with the
         overall corpus probability.
         """
+        bigramPair = context + " " + word
+        
+        if bigramPair not in self._countWords2:
+            return 0.0
+
+        return self._jm_lambda*(self._countWords2[bigramPair]/self._countWords2[context]) + self._jm_lambda * (self._countWords2[word]/len(self._countWords))
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
         return 0.0
@@ -159,6 +189,14 @@ class BigramLanguageModel:
         """
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
+
+        bigramPair = context + " " + word
+        
+        if bigramPair not in self._countWords2:
+            return 0.0
+
+        logmle = lg(self._countWords2[bigramPair]+self._add_k/self._countWords2[context]+self._add_k)
+
         return 0.0
 
     def add_train(self, sentence):
@@ -172,20 +210,50 @@ class BigramLanguageModel:
         # code that will hopefully get you started.
         #for each bigram word pairing, (context, word), 
         for context, word in bigrams(self.tokenize_and_censor(sentence)):
-            count = 0
-            # account for case where word that isn't part of vocabulary doesn't get 
+            
+            countBi = 0
+            # account for case where word that isn't part of vocabulary 
+            #if(context == "unknown" or  word == "unknown"):
+            #    continue
+
+            bigramPair = context + " " + word # the bigram pair we want to count
+            if bigramPair in self._countWords2:
+                countBi += self._countWords2[bigramPair]#if it is already in the countWords dict, set countBi = to current count
+            
+            countBi += 1#add one for this observation
+            self._countWords2[bigramPair] = countBi#reset countWords2/create new countWords2 instance
+
+###########################################################################################################
+            
+            countEach = 0
+            #if the <s> is part of vocab and already in the countWords2 dictionary, either second instance case/another instance in next sentence
+            if context == kSTART:
+                if kSTART in self._countWords2:
+                    countEach += self._countWords2[context] #set countEach= current number of times word has already occurred
+                #regardless if the context is already in countWords2 it is getting a count
+                countEach +=1    
+                self._countWords2[kSTART]= countEach
+
+            
+            
+            
+            #reset countEach
+            countEach = 0
+
 
             #if the word is part of vocab and already in the countWords2 dictionary, either second instance case/another instance in next sentence
             if word in self._countWords and word in self._countWords2:
-                count += self._countWords2[word] 
+                countEach += self._countWords2[word] #set countEach= current number of times word has already occurred
 
-            count +=1    
-            self._countWords2[word]= count
+            #regardless if the word is already in countWords2 it is getting a count
+            countEach +=1    
+            self._countWords2[word]= countEach
             
-            if count > 1:#PROBLEM,NO WORDS GET OVER 1
-                print(word,count)
+            #if count > 1:#PROBLEM,NO WORDS GET OVER 1
+                #print(word,count)
             #print(context, word)
-            None
+
+            
 
     def perplexity(self, sentence, method):
         """
@@ -270,15 +338,16 @@ if __name__ == "__main__":
 
         if args.brown_limit > 0 and sentence_count >= args.brown_limit:
             break
-'''
+
     print("Trained language model with %i sentences from Brown corpus." % sentence_count)
-    assert args.method in ['kneser_ney', 'mle', 'add_k', \
-                           'jelinek_mercer', 'good_turing', 'laplace'], \
+    assert args.method in ['mle', 'add_k', \
+                           'jelinek_mercer',  'laplace'], \
       "Invalid estimation method"
+    
+    #'kneser_ney', 'good_turing',
 
     sent = input()
     while sent:
         print("#".join(str(x) for x in lm.tokenize_and_censor(sent)))
         print(lm.perplexity(sent, getattr(lm, args.method)))
         sent = input()
-'''
