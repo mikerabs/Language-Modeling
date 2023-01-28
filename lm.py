@@ -52,7 +52,15 @@ class BigramLanguageModel:
         # the tokens in the training corpus and their counts. 
 
         #use dictionary
-        self._countWords[word] = count
+        countEach = 0
+        if word in self._countWords:
+            countEach += self._countWords[word]
+        elif count !=1:
+            countEach += count
+            countEach -= 1# because we always count it
+
+        countEach += 1    
+        self._countWords[word] = countEach
 
 
     def tokenize(self, sent):
@@ -148,11 +156,11 @@ class BigramLanguageModel:
         bigramPair = context + " " + word
         
         if bigramPair not in self._countWords2 and context not in self._countWords2:
-            return lg(0+1/0+len(self._countWords))
-        if bigramPair not in self._countWords2 and context  in self._countWords2:
-            return lg(0+1/self._countWords2[context]+len(self._countWords))
+            return lg(1)/lg(len(self._countWords))
+        if bigramPair not in self._countWords2 and context in self._countWords2:
+            return lg(1/(self._countWords2[context]+len(self._countWords)))
             
-        loglapl = lg(self._countWords2[bigramPair]+1/self._countWords2[context]+len(self._countWords))#+k*vocab_size?
+        loglapl = lg((self._countWords2[bigramPair]+1)/(self._countWords2[context]+len(self._countWords)))#+k*vocab_size?
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
         return loglapl
@@ -164,11 +172,39 @@ class BigramLanguageModel:
         overall corpus probability.
         """
         bigramPair = context + " " + word
-        
-        if bigramPair not in self._countWords2:
+
+        if bigramPair not in self._countWords2 and context not in self._countWords2:
             return 0.0
 
-        return self._jm_lambda*(self._countWords2[bigramPair]/self._countWords2[context]) + self._jm_lambda * (self._countWords2[word]/len(self._countWords))
+        
+        
+        
+        
+        
+        #counting the total wordTokens not including the start token
+        countWordTokensNoStart = 0
+        for i in self._countWords2:
+            isBigram = False
+            if i != kSTART:
+                for j in i:
+                    if j == " ":
+                        isBigram = True
+                if isBigram == True:
+                    continue
+                countWordTokensNoStart += self._countWords2[i]
+
+        #problem with counting word tokens in countWords2, the bigrams are also in there, so skip over them
+        unigramprobnum = self._countWords2[word]
+        unigramprob = unigramprobnum/countWordTokensNoStart
+        
+        #second case where context exists in countWords2 but the bigram pair is not in countWords2
+        if bigramPair not in self._countWords2 and context in self._countWords2:
+            return lg((1-self._jm_lambda) * (unigramprob))
+
+        #mle used in this calulation, below is unlogged value, check for bigram pair and context in countWords2 before this      
+        mle = self._countWords2[bigramPair]/self._countWords2[context]
+
+        return lg(self._jm_lambda*(mle) + (1-self._jm_lambda) * (unigramprob))
         # This initially return 0.0, ignoring the word and context.
         # Modify this code to return the correct value.
         return 0.0
@@ -191,13 +227,15 @@ class BigramLanguageModel:
         # Modify this code to return the correct value.
 
         bigramPair = context + " " + word
-        
-        if bigramPair not in self._countWords2:
-            return 0.0
+    
+        if bigramPair not in self._countWords2 and context not in self._countWords2:
+                return lg(self._add_k/self._add_k*len(self._countWords))
+        if bigramPair not in self._countWords2 and context in self._countWords2:
+            return lg(self._add_k/(self._countWords2[context]+self._add_k*len(self._countWords)))
 
-        logmle = lg(self._countWords2[bigramPair]+self._add_k/self._countWords2[context]+self._add_k)
+        logaddk = lg((self._countWords2[bigramPair]+self._add_k)/(self._countWords2[context]+self._add_k*len(self._countWords)))
 
-        return 0.0
+        return logaddk
 
     def add_train(self, sentence):
         """
@@ -228,6 +266,8 @@ class BigramLanguageModel:
             countEach = 0
             #if the <s> is part of vocab and already in the countWords2 dictionary, either second instance case/another instance in next sentence
             if context == kSTART:
+                if kSTART not in  self._countWords:# add <s> to vocab
+                    self._countWords[kSTART] = 1
                 if kSTART in self._countWords2:
                     countEach += self._countWords2[context] #set countEach= current number of times word has already occurred
                 #regardless if the context is already in countWords2 it is getting a count
@@ -235,6 +275,9 @@ class BigramLanguageModel:
                 self._countWords2[kSTART]= countEach
 
             
+
+            if self.vocab_lookup(word) not in self._countWords:#the problem with laplace
+                self._countWords[self.vocab_lookup(word)] = 1
             
             
             #reset countEach
@@ -315,11 +358,11 @@ if __name__ == "__main__":
 
 
 
-    for ii in nltk.corpus.brown.sents():
-        for jj in lm.tokenize(" ".join(ii)):
+    for ii in nltk.corpus.brown.sents():#for all sentences in corpus
+        for jj in lm.tokenize(" ".join(ii)):#for all words in sentence, got words from sentence using tokenize
             lm.train_seen(lm._normalizer(jj))
 
-    
+    #while finalizing vocabulary, none of the counts are going up for words that occur more than once, adjust train_seen?
 
     print("Done looking at all the words, finalizing vocabulary")
     lm.finalize()
@@ -332,7 +375,7 @@ if __name__ == "__main__":
 
 
     sentence_count = 0
-    for ii in nltk.corpus.brown.sents():
+    for ii in nltk.corpus.brown.sents():#for each sentence in centence corpus
         sentence_count += 1
         lm.add_train(" ".join(ii))
 
