@@ -389,8 +389,49 @@ if __name__ == "__main__":
     
     #'kneser_ney', 'good_turing',
 
+    perplexities = {}
+    count = 0
+    for ii in nltk.corpus.brown.sents():
+        #count +=1
+        #if count>5:
+         #   break
+        curr = ""
+        for s in ii:
+            if s != '.' or s != '\"' or s != '\'' or s != '`':
+                curr += (s+" ")
+            else:
+                curr += s
+        
+        #print(curr) 
+        perplexities[curr] = lm.perplexity(curr, getattr(lm, args.method))
+
+    #print the first couple sentences, make sure their format is exactly how you would input the text before you Piazza
+    #minCase = min(perplexities, key=perplexities.get)
+
+    countmin = 0
+    print("\nMinimum perplexity cases:")
+    for i in perplexities:
+        if perplexities[i] < 20:
+            print(i +"\n")
+            #print("\n")
+            countmin+=1
+    print(countmin)
+    #maxCase = max(perplexities, key=perplexities.get)
+
+    countmax = 0
+    print("\nMaximum perplexity cases:")
+    #print(maxCase)
+    for i in perplexities:
+        if perplexities[i] >35000:
+            print(i +"\n")
+            #print("\n")
+            countmax +=1
+    print(countmax)
+    #print(perplexities[maxCase])
+    ''' 
     sent = input()
     while sent:
         print("#".join(str(x) for x in lm.tokenize_and_censor(sent)))
         print(lm.perplexity(sent, getattr(lm, args.method)))
         sent = input()
+'''   
